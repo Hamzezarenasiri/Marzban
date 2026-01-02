@@ -25,10 +25,16 @@ NOISE_PATTERN = re.compile(
 class ProxyTypes(str, Enum):
     # proxy_type = protocol
 
+    # Xray protocols
     VMess = "vmess"
     VLESS = "vless"
     Trojan = "trojan"
     Shadowsocks = "shadowsocks"
+
+    # Sing-box protocols
+    Hysteria2 = "hysteria2"
+    TUIC = "tuic"
+    WireGuard = "wireguard"
 
     @property
     def account_model(self):
@@ -40,6 +46,8 @@ class ProxyTypes(str, Enum):
             return TrojanAccount
         if self == self.Shadowsocks:
             return ShadowsocksAccount
+        # Sing-box protocols don't use Xray account models
+        return None
 
     @property
     def settings_model(self):
@@ -51,6 +59,17 @@ class ProxyTypes(str, Enum):
             return TrojanSettings
         if self == self.Shadowsocks:
             return ShadowsocksSettings
+        if self == self.Hysteria2:
+            return Hysteria2Settings
+        if self == self.TUIC:
+            return TUICSettings
+        if self == self.WireGuard:
+            return WireGuardSettings
+
+    @property
+    def is_singbox_protocol(self) -> bool:
+        """Check if this protocol is handled by sing-box."""
+        return self in (self.Hysteria2, self.TUIC, self.WireGuard)
 
 
 class ProxySettings(BaseModel, use_enum_values=True):
@@ -93,6 +112,84 @@ class ShadowsocksSettings(ProxySettings):
 
     def revoke(self):
         self.password = random_password()
+
+
+# Sing-box protocol settings
+
+class Hysteria2Settings(ProxySettings):
+    password: str = Field(default_factory=random_password)
+
+    def revoke(self):
+        self.password = random_password()
+
+
+class TUICSettings(ProxySettings):
+    uuid: UUID = Field(default_factory=uuid4)
+    password: str = Field(default_factory=random_password)
+
+    def revoke(self):
+        self.uuid = uuid4()
+        self.password = random_password()
+
+
+def _generate_wireguard_keypair():
+    """Generate a WireGuard keypair using X25519."""
+    try:
+        from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
+        from cryptography.hazmat.primitives import serialization
+        import base64
+
+        private_key = X25519PrivateKey.generate()
+        private_bytes = private_key.private_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PrivateFormat.Raw,
+            encryption_algorithm=serialization.NoEncryption()
+        )
+        public_bytes = private_key.public_key().public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw
+        )
+        return {
+            "private_key": base64.b64encode(private_bytes).decode(),
+            "public_key": base64.b64encode(public_bytes).decode()
+        }
+    except ImportError:
+        # Fallback: use subprocess to call wg if cryptography is not available
+        import subprocess
+        import base64
+        try:
+            private_key = subprocess.check_output(["wg", "genkey"]).decode().strip()
+            public_key = subprocess.check_output(
+                ["wg", "pubkey"],
+                input=private_key.encode()
+            ).decode().strip()
+            return {"private_key": private_key, "public_key": public_key}
+        except Exception:
+            # Generate random keys as last resort
+            import secrets
+            private_bytes = secrets.token_bytes(32)
+            return {
+                "private_key": base64.b64encode(private_bytes).decode(),
+                "public_key": ""  # Will be computed by sing-box
+            }
+
+
+class WireGuardSettings(ProxySettings):
+    private_key: str = ""
+    public_key: str = ""
+    address: str = "10.0.0.2/32"
+
+    def __init__(self, **data):
+        if not data.get("private_key"):
+            keypair = _generate_wireguard_keypair()
+            data["private_key"] = keypair["private_key"]
+            data["public_key"] = keypair["public_key"]
+        super().__init__(**data)
+
+    def revoke(self):
+        keypair = _generate_wireguard_keypair()
+        self.private_key = keypair["private_key"]
+        self.public_key = keypair["public_key"]
 
 
 class ProxyHostSecurity(str, Enum):

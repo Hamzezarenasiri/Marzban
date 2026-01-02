@@ -155,6 +155,42 @@ class V2rayShareLink(str):
                 password=settings["password"],
                 method=settings["method"],
             )
+
+        elif inbound["protocol"] == "hysteria2":
+            link = self.hysteria2(
+                remark=remark,
+                address=address,
+                port=inbound["port"],
+                password=settings["password"],
+                sni=inbound.get("sni", ""),
+                obfs_type=inbound.get("obfs_type", ""),
+                obfs_password=inbound.get("obfs_password", ""),
+                insecure=inbound.get("ais", False),
+            )
+
+        elif inbound["protocol"] == "tuic":
+            link = self.tuic(
+                remark=remark,
+                address=address,
+                port=inbound["port"],
+                uuid=settings["uuid"],
+                password=settings["password"],
+                sni=inbound.get("sni", ""),
+                alpn=inbound.get("alpn", ""),
+                congestion_control=inbound.get("congestion_control", "bbr"),
+                insecure=inbound.get("ais", False),
+            )
+
+        elif inbound["protocol"] == "wireguard":
+            link = self.wireguard(
+                remark=remark,
+                address=address,
+                port=inbound["port"],
+                private_key=settings["private_key"],
+                public_key=settings.get("peer_public_key", ""),
+                local_address=settings["address"],
+                mtu=inbound.get("mtu", 1280),
+            )
         else:
             return
 
@@ -482,6 +518,106 @@ class V2rayShareLink(str):
             "ss://"
             + base64.b64encode(f"{method}:{password}".encode()).decode()
             + f"@{address}:{port}#{urlparse.quote(remark)}"
+        )
+
+    @classmethod
+    def hysteria2(
+            cls,
+            remark: str,
+            address: str,
+            port: int,
+            password: str,
+            sni: str = "",
+            obfs_type: str = "",
+            obfs_password: str = "",
+            insecure: bool = False,
+    ):
+        """
+        Generate Hysteria2 share link.
+        Format: hysteria2://password@address:port?sni=xxx&obfs=xxx&obfs-password=xxx#remark
+        """
+        payload = {}
+        if sni:
+            payload["sni"] = sni
+        if obfs_type:
+            payload["obfs"] = obfs_type
+            if obfs_password:
+                payload["obfs-password"] = obfs_password
+        if insecure:
+            payload["insecure"] = "1"
+
+        query = urlparse.urlencode(payload) if payload else ""
+        return (
+            "hysteria2://"
+            + f"{urlparse.quote(password, safe='')}@{address}:{port}"
+            + (f"?{query}" if query else "")
+            + f"#{urlparse.quote(remark)}"
+        )
+
+    @classmethod
+    def tuic(
+            cls,
+            remark: str,
+            address: str,
+            port: int,
+            uuid: Union[str, UUID],
+            password: str,
+            sni: str = "",
+            alpn: str = "",
+            congestion_control: str = "bbr",
+            insecure: bool = False,
+    ):
+        """
+        Generate TUIC share link.
+        Format: tuic://uuid:password@address:port?sni=xxx&alpn=xxx&congestion_control=xxx#remark
+        """
+        payload = {}
+        if sni:
+            payload["sni"] = sni
+        if alpn:
+            payload["alpn"] = alpn
+        if congestion_control:
+            payload["congestion_control"] = congestion_control
+        if insecure:
+            payload["allow_insecure"] = "1"
+
+        query = urlparse.urlencode(payload) if payload else ""
+        return (
+            "tuic://"
+            + f"{uuid}:{urlparse.quote(password, safe='')}@{address}:{port}"
+            + (f"?{query}" if query else "")
+            + f"#{urlparse.quote(remark)}"
+        )
+
+    @classmethod
+    def wireguard(
+            cls,
+            remark: str,
+            address: str,
+            port: int,
+            private_key: str,
+            public_key: str,
+            local_address: str,
+            mtu: int = 1280,
+            dns: str = "1.1.1.1",
+    ):
+        """
+        Generate WireGuard share link.
+        Format: wireguard://privatekey@address:port?publickey=xxx&address=xxx&mtu=xxx#remark
+        """
+        payload = {
+            "publickey": public_key,
+            "address": local_address,
+            "mtu": str(mtu),
+        }
+        if dns:
+            payload["dns"] = dns
+
+        return (
+            "wireguard://"
+            + f"{urlparse.quote(private_key, safe='')}@{address}:{port}?"
+            + urlparse.urlencode(payload)
+            + f"#{urlparse.quote(remark)}"
         )
 
 

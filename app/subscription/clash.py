@@ -391,6 +391,61 @@ class ClashMetaConfiguration(ClashConfiguration):
             node['password'] = settings['password']
             node['cipher'] = settings['method']
 
+        elif inbound['protocol'] == 'hysteria2':
+            # Hysteria2 has its own node format in Clash Meta
+            node = {
+                'name': proxy_remark,
+                'type': 'hysteria2',
+                'server': address,
+                'port': inbound['port'],
+                'password': settings['password'],
+                'udp': True,
+            }
+            if inbound.get('sni'):
+                node['sni'] = inbound['sni']
+            if inbound.get('obfs_type'):
+                node['obfs'] = inbound['obfs_type']
+                if inbound.get('obfs_password'):
+                    node['obfs-password'] = inbound['obfs_password']
+            if inbound.get('ais'):
+                node['skip-cert-verify'] = True
+
+        elif inbound['protocol'] == 'tuic':
+            # TUIC v5 format for Clash Meta
+            node = {
+                'name': proxy_remark,
+                'type': 'tuic',
+                'server': address,
+                'port': inbound['port'],
+                'uuid': str(settings['uuid']),
+                'password': settings['password'],
+                'udp': True,
+            }
+            if inbound.get('sni'):
+                node['sni'] = inbound['sni']
+            if inbound.get('alpn'):
+                alpn = inbound['alpn']
+                node['alpn'] = alpn.split(',') if isinstance(alpn, str) else alpn
+            if inbound.get('congestion_control'):
+                node['congestion-controller'] = inbound['congestion_control']
+            if inbound.get('ais'):
+                node['skip-cert-verify'] = True
+
+        elif inbound['protocol'] == 'wireguard':
+            # WireGuard format for Clash Meta
+            node = {
+                'name': proxy_remark,
+                'type': 'wireguard',
+                'server': address,
+                'port': inbound['port'],
+                'private-key': settings['private_key'],
+                'public-key': settings.get('peer_public_key', ''),
+                'ip': settings['address'].split('/')[0],
+                'udp': True,
+            }
+            if inbound.get('mtu'):
+                node['mtu'] = inbound['mtu']
+
         else:
             return
 

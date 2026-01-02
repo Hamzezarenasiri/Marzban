@@ -35,6 +35,13 @@ XRAY_EXCLUDE_INBOUND_TAGS = config("XRAY_EXCLUDE_INBOUND_TAGS", default='').spli
 XRAY_SUBSCRIPTION_URL_PREFIX = config("XRAY_SUBSCRIPTION_URL_PREFIX", default="").strip("/")
 XRAY_SUBSCRIPTION_PATH = config("XRAY_SUBSCRIPTION_PATH", default="sub").strip("/")
 
+# Sing-box Configuration (for Hysteria2, TUIC, WireGuard)
+SINGBOX_ENABLED = config("SINGBOX_ENABLED", cast=bool, default=False)
+SINGBOX_JSON = config("SINGBOX_JSON", default="./singbox_config.json")
+SINGBOX_EXECUTABLE_PATH = config("SINGBOX_EXECUTABLE_PATH", default="/usr/local/bin/sing-box")
+SINGBOX_ASSETS_PATH = config("SINGBOX_ASSETS_PATH", default="/usr/local/share/sing-box")
+SINGBOX_EXCLUDE_INBOUND_TAGS = config("SINGBOX_EXCLUDE_INBOUND_TAGS", default='').split()
+
 TELEGRAM_API_TOKEN = config("TELEGRAM_API_TOKEN", default="")
 TELEGRAM_ADMIN_ID = config(
     'TELEGRAM_ADMIN_ID',

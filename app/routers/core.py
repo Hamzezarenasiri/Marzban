@@ -12,7 +12,7 @@ from app.models.admin import Admin
 from app.models.core import CoreStats
 from app.utils import responses
 from app.xray import XRayConfig
-from config import XRAY_JSON
+from config import XRAY_JSON, SINGBOX_ENABLED, SINGBOX_JSON
 
 router = APIRouter(tags=["Core"], prefix="/api", responses={401: responses._401})
 
@@ -130,3 +130,116 @@ def modify_core_config(
     xray.hosts.update()
 
     return payload
+
+
+# Sing-box endpoints (for Hysteria2, TUIC, WireGuard)
+
+@router.get("/singbox", responses={403: responses._403})
+def get_singbox_stats(admin: Admin = Depends(Admin.get_current)):
+    """Retrieve sing-box core statistics."""
+    if not SINGBOX_ENABLED:
+        raise HTTPException(status_code=404, detail="Sing-box is not enabled")
+
+    from app import singbox
+
+    return {
+        "enabled": True,
+        "version": singbox.core.version if singbox.core else None,
+        "started": singbox.core.started if singbox.core else False,
+    }
+
+
+@router.post("/singbox/restart", responses={403: responses._403})
+def restart_singbox(admin: Admin = Depends(Admin.check_sudo_admin)):
+    """Restart the sing-box core."""
+    if not SINGBOX_ENABLED:
+        raise HTTPException(status_code=404, detail="Sing-box is not enabled")
+
+    from app import singbox
+
+    if singbox.core:
+        startup_config = singbox.config.include_db_users()
+        singbox.core.restart(startup_config)
+
+    return {"status": "restarted"}
+
+
+@router.get("/singbox/config", responses={403: responses._403})
+def get_singbox_config(admin: Admin = Depends(Admin.check_sudo_admin)) -> dict:
+    """Get the current sing-box configuration."""
+    if not SINGBOX_ENABLED:
+        raise HTTPException(status_code=404, detail="Sing-box is not enabled")
+
+    with open(SINGBOX_JSON, "r") as f:
+        config = commentjson.loads(f.read())
+
+    return config
+
+
+@router.put("/singbox/config", responses={403: responses._403})
+def modify_singbox_config(
+    payload: dict, admin: Admin = Depends(Admin.check_sudo_admin)
+) -> dict:
+    """Modify the sing-box configuration and restart the core."""
+    if not SINGBOX_ENABLED:
+        raise HTTPException(status_code=404, detail="Sing-box is not enabled")
+
+    from app import singbox
+    from app.singbox.config import SingBoxConfig
+
+    try:
+        config = SingBoxConfig(payload)
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err))
+
+    singbox.config = config
+    with open(SINGBOX_JSON, "w") as f:
+        f.write(json.dumps(payload, indent=4))
+
+    if singbox.core and singbox.core.started:
+        startup_config = config.include_db_users()
+        singbox.core.restart(startup_config)
+
+    return payload
+
+
+@router.websocket("/singbox/logs")
+async def singbox_logs(websocket: WebSocket, db: Session = Depends(get_db)):
+    """Stream sing-box logs via WebSocket."""
+    if not SINGBOX_ENABLED:
+        return await websocket.close(reason="Sing-box is not enabled", code=4404)
+
+    from app import singbox
+
+    token = websocket.query_params.get("token") or websocket.headers.get(
+        "Authorization", ""
+    ).removeprefix("Bearer ")
+    admin = Admin.get_admin(token, db)
+    if not admin:
+        return await websocket.close(reason="Unauthorized", code=4401)
+
+    if not admin.is_sudo:
+        return await websocket.close(reason="You're not allowed", code=4403)
+
+    if not singbox.core:
+        return await websocket.close(reason="Sing-box core not initialized", code=4404)
+
+    await websocket.accept()
+
+    with singbox.core.get_logs() as logs:
+        while True:
+            if not logs:
+                try:
+                    await asyncio.wait_for(websocket.receive(), timeout=0.2)
+                    continue
+                except asyncio.TimeoutError:
+                    continue
+                except (WebSocketDisconnect, RuntimeError):
+                    break
+
+            log = logs.popleft()
+
+            try:
+                await websocket.send_text(log)
+            except (WebSocketDisconnect, RuntimeError):
+                break

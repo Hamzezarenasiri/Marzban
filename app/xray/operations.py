@@ -60,7 +60,14 @@ def add_user(dbuser: "DBUser"):
     user = UserResponse.model_validate(dbuser)
     email = f"{dbuser.id}.{dbuser.username}"
 
+    has_singbox_protocols = False
+
     for proxy_type, inbound_tags in user.inbounds.items():
+        # Check if this is a sing-box protocol
+        if proxy_type.is_singbox_protocol:
+            has_singbox_protocols = True
+            continue  # Will be handled by sing-box reload
+
         for inbound_tag in inbound_tags:
             inbound = xray.config.inbounds_by_tag.get(inbound_tag, {})
 
@@ -89,6 +96,11 @@ def add_user(dbuser: "DBUser"):
                 if node.connected and node.started:
                     _add_user_to_inbound(node.api, inbound_tag, account)
 
+    # Handle sing-box protocols
+    if has_singbox_protocols:
+        from app.singbox import operations as singbox_ops
+        singbox_ops.add_user(dbuser)
+
 
 def remove_user(dbuser: "DBUser"):
     email = f"{dbuser.id}.{dbuser.username}"
@@ -99,13 +111,26 @@ def remove_user(dbuser: "DBUser"):
             if node.connected and node.started:
                 _remove_user_from_inbound(node.api, inbound_tag, email)
 
+    # Handle sing-box protocols
+    from config import SINGBOX_ENABLED
+    if SINGBOX_ENABLED:
+        from app.singbox import operations as singbox_ops
+        singbox_ops.remove_user(dbuser)
+
 
 def update_user(dbuser: "DBUser"):
     user = UserResponse.model_validate(dbuser)
     email = f"{dbuser.id}.{dbuser.username}"
 
     active_inbounds = []
+    has_singbox_protocols = False
+
     for proxy_type, inbound_tags in user.inbounds.items():
+        # Check if this is a sing-box protocol
+        if proxy_type.is_singbox_protocol:
+            has_singbox_protocols = True
+            continue  # Will be handled by sing-box reload
+
         for inbound_tag in inbound_tags:
             active_inbounds.append(inbound_tag)
             inbound = xray.config.inbounds_by_tag.get(inbound_tag, {})
@@ -143,6 +168,11 @@ def update_user(dbuser: "DBUser"):
         for node in list(xray.nodes.values()):
             if node.connected and node.started:
                 _remove_user_from_inbound(node.api, inbound_tag, email)
+
+    # Handle sing-box protocols
+    if has_singbox_protocols:
+        from app.singbox import operations as singbox_ops
+        singbox_ops.update_user(dbuser)
 
 
 def remove_node(node_id: int):

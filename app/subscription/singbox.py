@@ -49,10 +49,10 @@ class SingBoxConfiguration(str):
         self.config["outbounds"].append(outbound_data)
 
     def render(self, reverse=False):
-        urltest_types = ["vmess", "vless", "trojan", "shadowsocks"]
+        urltest_types = ["vmess", "vless", "trojan", "shadowsocks", "hysteria2", "tuic", "wireguard"]
         urltest_tags = [outbound["tag"]
                         for outbound in self.config["outbounds"] if outbound["type"] in urltest_types]
-        selector_types = ["vmess", "vless", "trojan", "shadowsocks", "urltest"]
+        selector_types = ["vmess", "vless", "trojan", "shadowsocks", "hysteria2", "tuic", "wireguard", "urltest"]
         selector_tags = [outbound["tag"]
                          for outbound in self.config["outbounds"] if outbound["type"] in selector_types]
 
@@ -332,5 +332,64 @@ class SingBoxConfiguration(str):
         elif inbound['protocol'] == 'shadowsocks':
             outbound['password'] = settings['password']
             outbound['method'] = settings['method']
+
+        elif inbound['protocol'] == 'hysteria2':
+            # Hysteria2 outbound for sing-box
+            outbound = {
+                'type': 'hysteria2',
+                'tag': remark,
+                'server': address,
+                'server_port': inbound['port'],
+                'password': settings['password'],
+            }
+            if inbound.get('sni'):
+                outbound['tls'] = {
+                    'enabled': True,
+                    'server_name': inbound['sni'],
+                }
+                if inbound.get('ais'):
+                    outbound['tls']['insecure'] = True
+            if inbound.get('obfs_type'):
+                outbound['obfs'] = {
+                    'type': inbound['obfs_type'],
+                    'password': inbound.get('obfs_password', ''),
+                }
+
+        elif inbound['protocol'] == 'tuic':
+            # TUIC outbound for sing-box
+            outbound = {
+                'type': 'tuic',
+                'tag': remark,
+                'server': address,
+                'server_port': inbound['port'],
+                'uuid': str(settings['uuid']),
+                'password': settings['password'],
+            }
+            if inbound.get('congestion_control'):
+                outbound['congestion_control'] = inbound['congestion_control']
+            if inbound.get('sni'):
+                outbound['tls'] = {
+                    'enabled': True,
+                    'server_name': inbound['sni'],
+                }
+                if inbound.get('alpn'):
+                    alpn = inbound['alpn']
+                    outbound['tls']['alpn'] = alpn.split(',') if isinstance(alpn, str) else alpn
+                if inbound.get('ais'):
+                    outbound['tls']['insecure'] = True
+
+        elif inbound['protocol'] == 'wireguard':
+            # WireGuard outbound for sing-box
+            outbound = {
+                'type': 'wireguard',
+                'tag': remark,
+                'server': address,
+                'server_port': inbound['port'],
+                'private_key': settings['private_key'],
+                'peer_public_key': settings.get('peer_public_key', ''),
+                'local_address': [settings['address']],
+            }
+            if inbound.get('mtu'):
+                outbound['mtu'] = inbound['mtu']
 
         self.add_outbound(outbound)
