@@ -10,6 +10,10 @@ from app.models.system import SystemStats
 from app.models.user import UserStatus
 from app.utils import responses
 from app.utils.system import cpu_usage, memory_usage, realtime_bandwidth
+from config import SINGBOX_ENABLED
+
+if SINGBOX_ENABLED:
+    from app import singbox
 
 router = APIRouter(tags=["System"], prefix="/api", responses={401: responses._401})
 
@@ -66,7 +70,24 @@ def get_system_stats(
 @router.get("/inbounds", response_model=Dict[ProxyTypes, List[ProxyInbound]])
 def get_inbounds(admin: Admin = Depends(Admin.get_current)):
     """Retrieve inbound configurations grouped by protocol."""
-    return xray.config.inbounds_by_protocol
+    inbounds = dict(xray.config.inbounds_by_protocol)
+
+    # Add sing-box inbounds (Hysteria2, TUIC, WireGuard)
+    if SINGBOX_ENABLED and singbox.config:
+        for proxy_type, inbound_list in singbox.config.inbounds_by_protocol.items():
+            if proxy_type not in inbounds:
+                inbounds[proxy_type] = []
+            inbounds[proxy_type].extend(inbound_list)
+
+    return inbounds
+
+
+def _get_all_inbound_tags():
+    """Get all inbound tags from both Xray and Sing-box."""
+    tags = set(xray.config.inbounds_by_tag.keys())
+    if SINGBOX_ENABLED and singbox.config:
+        tags.update(singbox.config.inbounds_by_tag.keys())
+    return tags
 
 
 @router.get(
@@ -76,7 +97,8 @@ def get_hosts(
     db: Session = Depends(get_db), admin: Admin = Depends(Admin.check_sudo_admin)
 ):
     """Get a list of proxy hosts grouped by inbound tag."""
-    hosts = {tag: crud.get_hosts(db, tag) for tag in xray.config.inbounds_by_tag}
+    all_tags = _get_all_inbound_tags()
+    hosts = {tag: crud.get_hosts(db, tag) for tag in all_tags}
     return hosts
 
 
@@ -89,8 +111,9 @@ def modify_hosts(
     admin: Admin = Depends(Admin.check_sudo_admin),
 ):
     """Modify proxy hosts and update the configuration."""
+    all_tags = _get_all_inbound_tags()
     for inbound_tag in modified_hosts:
-        if inbound_tag not in xray.config.inbounds_by_tag:
+        if inbound_tag not in all_tags:
             raise HTTPException(
                 status_code=400, detail=f"Inbound {inbound_tag} doesn't exist"
             )
@@ -100,4 +123,4 @@ def modify_hosts(
 
     xray.hosts.update()
 
-    return {tag: crud.get_hosts(db, tag) for tag in xray.config.inbounds_by_tag}
+    return {tag: crud.get_hosts(db, tag) for tag in all_tags}
