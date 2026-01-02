@@ -4,8 +4,11 @@ import traceback
 from app import app, logger, scheduler, xray
 from app.db import GetDB, crud
 from app.models.node import NodeStatus
-from config import JOB_CORE_HEALTH_CHECK_INTERVAL
+from config import JOB_CORE_HEALTH_CHECK_INTERVAL, SINGBOX_ENABLED
 from xray_api import exc as xray_exc
+
+if SINGBOX_ENABLED:
+    from app import singbox
 
 
 def core_health_check():
@@ -64,6 +67,15 @@ def start_core():
                       seconds=JOB_CORE_HEALTH_CHECK_INTERVAL,
                       coalesce=True, max_instances=1)
 
+    # Start Sing-box core for Hysteria2, TUIC, WireGuard
+    if SINGBOX_ENABLED and singbox.core:
+        logger.info("Starting Sing-box core")
+        try:
+            singbox_config = singbox.config.include_db_users()
+            singbox.core.start(singbox_config)
+        except Exception:
+            traceback.print_exc()
+
 
 @app.on_event("shutdown")
 def app_shutdown():
@@ -76,3 +88,8 @@ def app_shutdown():
             node.disconnect()
         except Exception:
             pass
+
+    # Stop Sing-box core
+    if SINGBOX_ENABLED and singbox.core:
+        logger.info("Stopping Sing-box core")
+        singbox.core.stop()
