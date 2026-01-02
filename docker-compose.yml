@@ -1,8 +1,9 @@
 services:
   marzban:
-    image: gozargah/marzban:latest
+    build: .
+    image: marzban-fork:latest
     restart: always
     env_file: .env
     network_mode: host
     volumes:
-      - /var/lib/marzban:/var/lib/marzban
+      - /home/ubuntu/Marzban/var:/var/lib/marzban

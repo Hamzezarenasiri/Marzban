@@ -9,6 +9,11 @@ WORKDIR /code
 RUN apt-get update \
     && apt-get install -y --no-install-recommends build-essential curl unzip gcc python3-dev libpq-dev \
     && curl -L https://github.com/Gozargah/Marzban-scripts/raw/master/install_latest_xray.sh | bash \
+    && curl -L https://github.com/SagerNet/sing-box/releases/download/v1.10.7/sing-box-1.10.7-linux-amd64.tar.gz -o /tmp/singbox.tar.gz \
+    && tar -xzf /tmp/singbox.tar.gz -C /tmp \
+    && mv /tmp/sing-box-*/sing-box /usr/local/bin/sing-box \
+    && chmod +x /usr/local/bin/sing-box \
+    && rm -rf /tmp/singbox.tar.gz /tmp/sing-box-* \
     && rm -rf /var/lib/apt/lists/*
 
 COPY ./requirements.txt /code/
@@ -25,6 +30,7 @@ RUN rm -rf $PYTHON_LIB_PATH/*
 COPY --from=build $PYTHON_LIB_PATH $PYTHON_LIB_PATH
 COPY --from=build /usr/local/bin /usr/local/bin
 COPY --from=build /usr/local/share/xray /usr/local/share/xray
+COPY --from=build /usr/local/bin/sing-box /usr/local/bin/sing-box
 
 COPY . /code
 

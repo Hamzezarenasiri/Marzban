@@ -13,8 +13,8 @@
       "tls": {
         "enabled": true,
         "server_name": "",
-        "certificate_path": "/var/lib/marzban/certs/fullchain.pem",
-        "key_path": "/var/lib/marzban/certs/privkey.pem"
+        "certificate_path": "/var/lib/marzban/fullchain.pem",
+        "key_path": "/var/lib/marzban/privkey.pem"
       }
     },
     {
@@ -27,8 +27,8 @@
       "tls": {
         "enabled": true,
         "server_name": "",
-        "certificate_path": "/var/lib/marzban/certs/fullchain.pem",
-        "key_path": "/var/lib/marzban/certs/privkey.pem",
+        "certificate_path": "/var/lib/marzban/fullchain.pem",
+        "key_path": "/var/lib/marzban/privkey.pem",
         "alpn": ["h3"]
       }
     },

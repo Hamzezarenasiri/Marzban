@@ -14,6 +14,7 @@ from app.db import models as db_models
 from app.models.proxy import ProxyTypes
 from app.models.user import UserStatus
 from app.utils.crypto import get_cert_SANs
+from app.utils.x25519 import x25519_public_from_private
 from config import DEBUG, XRAY_EXCLUDE_INBOUND_TAGS, XRAY_FALLBACKS_INBOUND_TAG
 
 
@@ -225,12 +226,19 @@ class XRayConfig(dict):
                             raise ValueError(
                                 f"You need to provide privateKey in realitySettings of {inbound['tag']}")
 
-                        try:
-                            from app.xray import core
-                            x25519 = core.get_x25519(pvk)
-                            settings['pbk'] = x25519['public_key']
-                        except ImportError:
-                            pass
+                        # Try to derive public key from private key using cryptography
+                        public_key = x25519_public_from_private(pvk)
+                        if public_key:
+                            settings['pbk'] = public_key
+                        else:
+                            # Fallback to xray binary
+                            try:
+                                from app.xray import core
+                                x25519 = core.get_x25519(pvk)
+                                if x25519:
+                                    settings['pbk'] = x25519['public_key']
+                            except ImportError:
+                                pass
 
                         if not settings.get('pbk'):
                             raise ValueError(
