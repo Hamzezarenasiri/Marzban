@@ -50,11 +50,19 @@ class SingBoxConfig(dict):
             if not tag or protocol not in self.SUPPORTED_PROTOCOLS:
                 continue
 
+            # Set default network type based on protocol
+            network_map = {
+                "hysteria2": "hysteria2",
+                "tuic": "quic",
+                "wireguard": "wireguard",
+            }
+
             settings = {
                 "tag": tag,
                 "protocol": protocol,
                 "port": inbound.get("listen_port") or inbound.get("port"),
                 "listen": inbound.get("listen", "::"),
+                "network": network_map.get(protocol, "tcp"),
             }
 
             # Protocol-specific settings
