@@ -76,3 +76,16 @@ export const shadowsocksMethods = [
   "aes-256-gcm",
   "chacha20-ietf-poly1305",
 ];
+
+// TUIC congestion control options
+export const tuicCongestionControl = [
+  { title: "BBR", value: "bbr" },
+  { title: "Cubic", value: "cubic" },
+  { title: "New Reno", value: "new_reno" },
+];
+
+// Hysteria2 obfuscation types
+export const hysteria2ObfsTypes = [
+  { title: "None", value: "" },
+  { title: "Salamander", value: "salamander" },
+];

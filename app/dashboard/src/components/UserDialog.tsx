@@ -122,6 +122,9 @@ const getDefaultValues = (): FormType => {
       vmess: { id: "" },
       trojan: { password: "" },
       shadowsocks: { password: "", method: "chacha20-ietf-poly1305" },
+      hysteria2: { password: "" },
+      tuic: { uuid: "", password: "" },
+      wireguard: { private_key: "", public_key: "", address: "10.0.0.2/32" },
     },
   };
 };
@@ -162,6 +165,11 @@ const baseSchema = {
       deleteIfEmpty(ins.trojan, "password");
       deleteIfEmpty(ins.shadowsocks, "password");
       deleteIfEmpty(ins.shadowsocks, "method");
+      deleteIfEmpty(ins.hysteria2, "password");
+      deleteIfEmpty(ins.tuic, "uuid");
+      deleteIfEmpty(ins.tuic, "password");
+      deleteIfEmpty(ins.wireguard, "private_key");
+      deleteIfEmpty(ins.wireguard, "public_key");
       return ins;
     }),
   data_limit: z
@@ -744,6 +752,18 @@ export const UserDialog: FC<UserDialogProps> = () => {
                               {
                                 title: "shadowsocks",
                                 description: t("userDialog.shadowsocksDesc"),
+                              },
+                              {
+                                title: "hysteria2",
+                                description: t("userDialog.hysteria2Desc"),
+                              },
+                              {
+                                title: "tuic",
+                                description: t("userDialog.tuicDesc"),
+                              },
+                              {
+                                title: "wireguard",
+                                description: t("userDialog.wireguardDesc"),
                               },
                             ]}
                             disabled={disabled}
