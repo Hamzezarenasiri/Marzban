@@ -10,11 +10,34 @@
       "listen": "::",
       "listen_port": 8444,
       "users": [],
+      "up_mbps": 100,
+      "down_mbps": 100,
       "tls": {
         "enabled": true,
         "server_name": "mr.afarin.top",
         "certificate_path": "/var/lib/marzban/fullchain.pem",
-        "key_path": "/var/lib/marzban/privkey.pem"
+        "key_path": "/var/lib/marzban/privkey.pem",
+        "alpn": ["h3"]
+      }
+    },
+    {
+      "type": "hysteria2",
+      "tag": "Hysteria2 Obfs",
+      "listen": "::",
+      "listen_port": 8446,
+      "users": [],
+      "up_mbps": 100,
+      "down_mbps": 100,
+      "obfs": {
+        "type": "salamander",
+        "password": "marzban-obfs-password"
+      },
+      "tls": {
+        "enabled": true,
+        "server_name": "mr.afarin.top",
+        "certificate_path": "/var/lib/marzban/fullchain.pem",
+        "key_path": "/var/lib/marzban/privkey.pem",
+        "alpn": ["h3"]
       }
     },
     {
@@ -24,6 +47,23 @@
       "listen_port": 8445,
       "users": [],
       "congestion_control": "bbr",
+      "zero_rtt_handshake": true,
+      "tls": {
+        "enabled": true,
+        "server_name": "mr.afarin.top",
+        "certificate_path": "/var/lib/marzban/fullchain.pem",
+        "key_path": "/var/lib/marzban/privkey.pem",
+        "alpn": ["h3"]
+      }
+    },
+    {
+      "type": "tuic",
+      "tag": "TUIC Cubic",
+      "listen": "::",
+      "listen_port": 8447,
+      "users": [],
+      "congestion_control": "cubic",
+      "zero_rtt_handshake": true,
       "tls": {
         "enabled": true,
         "server_name": "mr.afarin.top",
@@ -44,6 +84,16 @@
     }
   ],
   "route": {
+    "rules": [
+      {
+        "geoip": ["private"],
+        "outbound": "block"
+      },
+      {
+        "protocol": ["bittorrent"],
+        "outbound": "block"
+      }
+    ],
     "final": "direct"
   }
 }
