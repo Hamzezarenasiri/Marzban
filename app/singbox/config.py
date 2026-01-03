@@ -155,6 +155,13 @@ class SingBoxConfig(dict):
             inbounds_by_protocol=deepcopy(self.inbounds_by_protocol),
         )
 
+    def _get_user_proxy_settings(self, user, proxy_type) -> dict:
+        """Get proxy settings for a user by proxy type."""
+        for proxy in user.proxies:
+            if proxy.type == proxy_type:
+                return proxy.settings or {}
+        return {}
+
     def include_db_users(self) -> "SingBoxConfig":
         """
         Include users from database into the configuration.
@@ -190,7 +197,7 @@ class SingBoxConfig(dict):
                         if proxy_type in user.inbounds and tag in user.inbounds.get(
                             proxy_type, []
                         ):
-                            proxy_settings = user.proxies.get(proxy_type, {})
+                            proxy_settings = self._get_user_proxy_settings(user, proxy_type)
                             if proxy_settings:
                                 inbound["users"].append(
                                     {
@@ -205,7 +212,7 @@ class SingBoxConfig(dict):
                         if proxy_type in user.inbounds and tag in user.inbounds.get(
                             proxy_type, []
                         ):
-                            proxy_settings = user.proxies.get(proxy_type, {})
+                            proxy_settings = self._get_user_proxy_settings(user, proxy_type)
                             if proxy_settings:
                                 inbound["users"].append(
                                     {
@@ -221,7 +228,7 @@ class SingBoxConfig(dict):
                         if proxy_type in user.inbounds and tag in user.inbounds.get(
                             proxy_type, []
                         ):
-                            proxy_settings = user.proxies.get(proxy_type, {})
+                            proxy_settings = self._get_user_proxy_settings(user, proxy_type)
                             if proxy_settings:
                                 inbound["peers"].append(
                                     {
