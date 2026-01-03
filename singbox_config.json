@@ -86,7 +86,7 @@
   "route": {
     "rules": [
       {
-        "geoip": ["private"],
+        "ip_is_private": true,
         "outbound": "block"
       },
       {
