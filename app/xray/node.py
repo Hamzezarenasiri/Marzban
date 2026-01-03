@@ -18,6 +18,10 @@ from websocket import WebSocketConnectionClosedException, WebSocketTimeoutExcept
 from app.xray.config import XRayConfig
 from xray_api import XRay as XRayAPI
 
+from config import SINGBOX_ENABLED
+if SINGBOX_ENABLED:
+    from app.singbox.config import SingBoxConfig
+
 
 def string_to_temp_file(content: str):
     file = tempfile.NamedTemporaryFile(mode='w+t')
@@ -270,6 +274,99 @@ class ReSTXRayNode:
                 pass
             del buf
 
+    # Sing-box methods
+    def _prepare_singbox_config(self, config: "SingBoxConfig"):
+        """Prepare sing-box config for node by embedding certificate content."""
+        import copy
+        config = copy.deepcopy(dict(config))
+
+        for inbound in config.get('inbounds', []):
+            tls = inbound.get('tls') or {}
+            if tls.get('certificate_path'):
+                try:
+                    with open(tls['certificate_path']) as f:
+                        tls['certificate'] = f.read()
+                    del tls['certificate_path']
+                except (FileNotFoundError, IOError):
+                    pass
+
+            if tls.get('key_path'):
+                try:
+                    with open(tls['key_path']) as f:
+                        tls['key'] = f.read()
+                    del tls['key_path']
+                except (FileNotFoundError, IOError):
+                    pass
+
+        return config
+
+    def get_singbox_info(self):
+        """Get sing-box info from node."""
+        res = self.make_request("/", timeout=3)
+        return {
+            "enabled": res.get('singbox_enabled', False),
+            "started": res.get('singbox_started', False),
+            "version": res.get('singbox_version'),
+        }
+
+    @property
+    def singbox_enabled(self):
+        try:
+            info = self.get_singbox_info()
+            return info.get('enabled', False)
+        except Exception:
+            return False
+
+    @property
+    def singbox_started(self):
+        try:
+            info = self.get_singbox_info()
+            return info.get('started', False)
+        except Exception:
+            return False
+
+    def singbox_start(self, config: "SingBoxConfig"):
+        """Start sing-box on the node."""
+        if not self.connected:
+            self.connect()
+
+        config = self._prepare_singbox_config(config)
+        json_config = json.dumps(config)
+
+        try:
+            res = self.make_request("/singbox/start", timeout=10, config=json_config)
+        except NodeAPIError as exc:
+            if 'already' in str(exc.detail).lower():
+                return self.singbox_restart(config)
+            else:
+                raise exc
+
+        self._singbox_started = True
+        return res
+
+    def singbox_stop(self):
+        """Stop sing-box on the node."""
+        if not self.connected:
+            self.connect()
+
+        self.make_request('/singbox/stop', timeout=5)
+        self._singbox_started = False
+
+    def singbox_restart(self, config: "SingBoxConfig"):
+        """Restart sing-box on the node."""
+        if not self.connected:
+            self.connect()
+
+        if isinstance(config, dict):
+            config = self._prepare_singbox_config(config)
+        else:
+            config = self._prepare_singbox_config(config)
+        json_config = json.dumps(config)
+
+        res = self.make_request("/singbox/restart", timeout=10, config=json_config)
+        self._singbox_started = True
+        return res
+
 
 class RPyCXRayNode:
     def __init__(self,
@@ -491,6 +588,72 @@ class RPyCXRayNode:
     def on_stop(self, func: callable):
         self._service.add_shutdown_func(func)
         return func
+
+    # Sing-box methods
+    def _prepare_singbox_config(self, config: "SingBoxConfig"):
+        """Prepare sing-box config for node by embedding certificate content."""
+        import copy
+        import json
+        config = copy.deepcopy(dict(config))
+
+        for inbound in config.get('inbounds', []):
+            tls = inbound.get('tls') or {}
+            if tls.get('certificate_path'):
+                try:
+                    with open(tls['certificate_path']) as f:
+                        tls['certificate'] = f.read()
+                    del tls['certificate_path']
+                except (FileNotFoundError, IOError):
+                    pass
+
+            if tls.get('key_path'):
+                try:
+                    with open(tls['key_path']) as f:
+                        tls['key'] = f.read()
+                    del tls['key_path']
+                except (FileNotFoundError, IOError):
+                    pass
+
+        return config
+
+    @property
+    def singbox_enabled(self):
+        try:
+            return self.remote.is_singbox_enabled()
+        except Exception:
+            return False
+
+    @property
+    def singbox_started(self):
+        return getattr(self, '_singbox_started', False)
+
+    def singbox_start(self, config: "SingBoxConfig"):
+        """Start sing-box on the node."""
+        import json
+        config = self._prepare_singbox_config(config)
+        json_config = json.dumps(config)
+        self.remote.singbox_start(json_config)
+        self._singbox_started = True
+
+    def singbox_stop(self):
+        """Stop sing-box on the node."""
+        self.remote.singbox_stop()
+        self._singbox_started = False
+
+    def singbox_restart(self, config: "SingBoxConfig"):
+        """Restart sing-box on the node."""
+        import json
+        config = self._prepare_singbox_config(config)
+        json_config = json.dumps(config)
+        self.remote.singbox_restart(json_config)
+        self._singbox_started = True
+
+    def get_singbox_version(self):
+        """Get sing-box version from node."""
+        try:
+            return self.remote.fetch_singbox_version()
+        except Exception:
+            return None
 
 
 class XRayNode:

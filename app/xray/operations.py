@@ -223,7 +223,7 @@ _connecting_nodes = {}
 
 
 @threaded_function
-def connect_node(node_id, config=None):
+def connect_node(node_id, config=None, singbox_config=None):
     global _connecting_nodes
 
     if _connecting_nodes.get(node_id):
@@ -255,6 +255,20 @@ def connect_node(node_id, config=None):
         _change_node_status(node_id, NodeStatus.connected, version=version)
         logger.info(f"Connected to \"{dbnode.name}\" node, xray run on v{version}")
 
+        # Start sing-box on node if enabled
+        from config import SINGBOX_ENABLED
+        if SINGBOX_ENABLED:
+            try:
+                if node.singbox_enabled:
+                    from app import singbox
+                    if singbox_config is None:
+                        singbox_config = singbox.config.include_db_users()
+                    node.singbox_start(singbox_config)
+                    singbox_version = node.get_singbox_version() if hasattr(node, 'get_singbox_version') else None
+                    logger.info(f"Sing-box started on \"{dbnode.name}\" node" + (f", v{singbox_version}" if singbox_version else ""))
+            except Exception as e:
+                logger.warning(f"Failed to start sing-box on \"{dbnode.name}\" node: {e}")
+
     except Exception as e:
         _change_node_status(node_id, NodeStatus.error, message=str(e))
         logger.info(f"Unable to connect to \"{dbnode.name}\" node")
@@ -267,7 +281,7 @@ def connect_node(node_id, config=None):
 
 
 @threaded_function
-def restart_node(node_id, config=None):
+def restart_node(node_id, config=None, singbox_config=None):
     with GetDB() as db:
         dbnode = crud.get_node_by_id(db, node_id)
 
@@ -280,7 +294,7 @@ def restart_node(node_id, config=None):
         node = xray.operations.add_node(dbnode)
 
     if not node.connected:
-        return connect_node(node_id, config)
+        return connect_node(node_id, config, singbox_config)
 
     try:
         logger.info(f"Restarting Xray core of \"{dbnode.name}\" node")
@@ -290,6 +304,20 @@ def restart_node(node_id, config=None):
 
         node.restart(config)
         logger.info(f"Xray core of \"{dbnode.name}\" node restarted")
+
+        # Restart sing-box on node if enabled
+        from config import SINGBOX_ENABLED
+        if SINGBOX_ENABLED:
+            try:
+                if node.singbox_enabled:
+                    from app import singbox
+                    if singbox_config is None:
+                        singbox_config = singbox.config.include_db_users()
+                    node.singbox_restart(singbox_config)
+                    logger.info(f"Sing-box restarted on \"{dbnode.name}\" node")
+            except Exception as e:
+                logger.warning(f"Failed to restart sing-box on \"{dbnode.name}\" node: {e}")
+
     except Exception as e:
         _change_node_status(node_id, NodeStatus.error, message=str(e))
         logger.info(f"Unable to restart node {node_id}")
