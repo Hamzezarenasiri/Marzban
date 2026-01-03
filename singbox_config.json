@@ -14,9 +14,9 @@
       "down_mbps": 100,
       "tls": {
         "enabled": true,
-        "server_name": "mr.afarin.top",
-        "certificate_path": "/var/lib/marzban/fullchain.pem",
-        "key_path": "/var/lib/marzban/privkey.pem",
+        "server_name": "hy.afarin.top",
+        "certificate_path": "/var/lib/marzban/hy_fullchain.pem",
+        "key_path": "/var/lib/marzban/hy_privkey.pem",
         "alpn": ["h3"]
       }
     },
@@ -34,9 +34,9 @@
       },
       "tls": {
         "enabled": true,
-        "server_name": "mr.afarin.top",
-        "certificate_path": "/var/lib/marzban/fullchain.pem",
-        "key_path": "/var/lib/marzban/privkey.pem",
+        "server_name": "hy.afarin.top",
+        "certificate_path": "/var/lib/marzban/hy_fullchain.pem",
+        "key_path": "/var/lib/marzban/hy_privkey.pem",
         "alpn": ["h3"]
       }
     },
@@ -50,9 +50,9 @@
       "zero_rtt_handshake": true,
       "tls": {
         "enabled": true,
-        "server_name": "mr.afarin.top",
-        "certificate_path": "/var/lib/marzban/fullchain.pem",
-        "key_path": "/var/lib/marzban/privkey.pem",
+        "server_name": "hy.afarin.top",
+        "certificate_path": "/var/lib/marzban/hy_fullchain.pem",
+        "key_path": "/var/lib/marzban/hy_privkey.pem",
         "alpn": ["h3"]
       }
     },
@@ -66,9 +66,9 @@
       "zero_rtt_handshake": true,
       "tls": {
         "enabled": true,
-        "server_name": "mr.afarin.top",
-        "certificate_path": "/var/lib/marzban/fullchain.pem",
-        "key_path": "/var/lib/marzban/privkey.pem",
+        "server_name": "hy.afarin.top",
+        "certificate_path": "/var/lib/marzban/hy_fullchain.pem",
+        "key_path": "/var/lib/marzban/hy_privkey.pem",
         "alpn": ["h3"]
       }
     }
