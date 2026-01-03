@@ -11,7 +11,29 @@ from app.models.admin import Admin
 from app.models.proxy import ProxySettings, ProxyTypes
 from app.subscription.share import generate_v2ray_links
 from app.utils.jwt import create_subscription_token
-from config import XRAY_SUBSCRIPTION_PATH, XRAY_SUBSCRIPTION_URL_PREFIX
+from config import XRAY_SUBSCRIPTION_PATH, XRAY_SUBSCRIPTION_URL_PREFIX, SINGBOX_ENABLED
+
+if SINGBOX_ENABLED:
+    from app import singbox
+
+
+def get_all_inbounds_by_tag() -> dict:
+    """Get all inbounds from both xray and sing-box configurations."""
+    all_inbounds = dict(xray.config.inbounds_by_tag)
+    if SINGBOX_ENABLED and singbox.config:
+        all_inbounds.update(singbox.config.inbounds_by_tag)
+    return all_inbounds
+
+
+def get_all_inbounds_by_protocol() -> dict:
+    """Get all inbounds grouped by protocol from both xray and sing-box."""
+    all_inbounds = dict(xray.config.inbounds_by_protocol)
+    if SINGBOX_ENABLED and singbox.config:
+        for proxy_type, inbound_list in singbox.config.inbounds_by_protocol.items():
+            if proxy_type not in all_inbounds:
+                all_inbounds[proxy_type] = []
+            all_inbounds[proxy_type].extend(inbound_list)
+    return all_inbounds
 
 USERNAME_REGEXP = re.compile(r"^(?=\w{3,32}\b)[a-zA-Z0-9-_@.]+(?:_[a-zA-Z0-9-_@.]+)*$")
 
@@ -154,9 +176,10 @@ class UserCreate(User):
     @property
     def excluded_inbounds(self):
         excluded = {}
+        all_inbounds_by_protocol = get_all_inbounds_by_protocol()
         for proxy_type in self.proxies:
             excluded[proxy_type] = []
-            for inbound in xray.config.inbounds_by_protocol.get(proxy_type, []):
+            for inbound in all_inbounds_by_protocol.get(proxy_type, []):
                 if not inbound["tag"] in self.inbounds.get(proxy_type, []):
                     excluded[proxy_type].append(inbound["tag"])
 
@@ -165,6 +188,8 @@ class UserCreate(User):
     @field_validator("inbounds", mode="before")
     def validate_inbounds(cls, inbounds, values, **kwargs):
         proxies = values.data.get("proxies", [])
+        all_inbounds_by_tag = get_all_inbounds_by_tag()
+        all_inbounds_by_protocol = get_all_inbounds_by_protocol()
 
         # delete inbounds that are for protocols not activated
         for proxy_type in inbounds.copy():
@@ -177,7 +202,7 @@ class UserCreate(User):
 
             if tags:
                 for tag in tags:
-                    if tag not in xray.config.inbounds_by_tag:
+                    if tag not in all_inbounds_by_tag:
                         raise ValueError(f"Inbound {tag} doesn't exist")
 
             # elif isinstance(tags, list) and not tags:
@@ -186,7 +211,7 @@ class UserCreate(User):
             else:
                 inbounds[proxy_type] = [
                     i["tag"]
-                    for i in xray.config.inbounds_by_protocol.get(proxy_type, [])
+                    for i in all_inbounds_by_protocol.get(proxy_type, [])
                 ]
 
         return inbounds
@@ -235,9 +260,10 @@ class UserModify(User):
     @property
     def excluded_inbounds(self):
         excluded = {}
+        all_inbounds_by_protocol = get_all_inbounds_by_protocol()
         for proxy_type in self.inbounds:
             excluded[proxy_type] = []
-            for inbound in xray.config.inbounds_by_protocol.get(proxy_type, []):
+            for inbound in all_inbounds_by_protocol.get(proxy_type, []):
                 if not inbound["tag"] in self.inbounds.get(proxy_type, []):
                     excluded[proxy_type].append(inbound["tag"])
 
@@ -247,6 +273,7 @@ class UserModify(User):
     def validate_inbounds(cls, inbounds, values, **kwargs):
         # check with inbounds, "proxies" is optional on modifying
         # so inbounds particularly can be modified
+        all_inbounds_by_tag = get_all_inbounds_by_tag()
         if inbounds:
             for proxy_type, tags in inbounds.items():
 
@@ -254,7 +281,7 @@ class UserModify(User):
                 #     raise ValueError(f"{proxy_type} inbounds cannot be empty")
 
                 for tag in tags:
-                    if tag not in xray.config.inbounds_by_tag:
+                    if tag not in all_inbounds_by_tag:
                         raise ValueError(f"Inbound {tag} doesn't exist")
 
         return inbounds

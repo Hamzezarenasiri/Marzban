@@ -22,6 +22,10 @@ from sqlalchemy.sql.expression import select, text
 
 from app import xray
 from app.db.base import Base
+from config import SINGBOX_ENABLED
+
+if SINGBOX_ENABLED:
+    from app import singbox
 from app.models.node import NodeStatus
 from app.models.proxy import (
     ProxyHostALPN,
@@ -138,9 +142,15 @@ class User(Base):
         for proxy in self.proxies:
             _[proxy.type] = []
             excluded_tags = [i.tag for i in proxy.excluded_inbounds]
+            # Add xray inbounds
             for inbound in xray.config.inbounds_by_protocol.get(proxy.type, []):
                 if inbound["tag"] not in excluded_tags:
                     _[proxy.type].append(inbound["tag"])
+            # Add sing-box inbounds (Hysteria2, TUIC, etc.)
+            if SINGBOX_ENABLED and singbox.config:
+                for inbound in singbox.config.inbounds_by_protocol.get(proxy.type, []):
+                    if inbound["tag"] not in excluded_tags:
+                        _[proxy.type].append(inbound["tag"])
 
         return _
 
