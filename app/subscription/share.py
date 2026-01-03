@@ -10,6 +10,10 @@ from jdatetime import date as jd
 
 from app import xray
 from app.utils.system import get_public_ip, get_public_ipv6, readable_size
+from config import SINGBOX_ENABLED
+
+if SINGBOX_ENABLED:
+    from app import singbox
 
 from . import *
 
@@ -229,6 +233,22 @@ def setup_format_variables(extra_data: dict) -> dict:
     return format_variables
 
 
+def get_all_inbounds_by_tag() -> dict:
+    """Get all inbounds from both xray and sing-box configurations."""
+    all_inbounds = dict(xray.config.inbounds_by_tag)
+    if SINGBOX_ENABLED and singbox.config:
+        all_inbounds.update(singbox.config.inbounds_by_tag)
+    return all_inbounds
+
+
+def get_all_hosts() -> dict:
+    """Get all hosts from both xray and sing-box configurations."""
+    all_hosts = dict(xray.hosts)
+    if SINGBOX_ENABLED and hasattr(singbox, 'hosts') and singbox.hosts:
+        all_hosts.update(singbox.hosts)
+    return all_hosts
+
+
 def process_inbounds_and_tags(
         inbounds: dict,
         proxies: dict,
@@ -247,10 +267,13 @@ def process_inbounds_and_tags(
     for protocol, tags in inbounds.items():
         for tag in tags:
             _inbounds.append((protocol, [tag]))
-    index_dict = {proxy: index for index, proxy in enumerate(
-        xray.config.inbounds_by_tag.keys())}
+
+    all_inbounds_by_tag = get_all_inbounds_by_tag()
+    index_dict = {proxy: index for index, proxy in enumerate(all_inbounds_by_tag.keys())}
     inbounds = sorted(
         _inbounds, key=lambda x: index_dict.get(x[1][0], float('inf')))
+
+    all_hosts = get_all_hosts()
 
     for protocol, tags in inbounds:
         settings = proxies.get(protocol)
@@ -259,13 +282,13 @@ def process_inbounds_and_tags(
 
         format_variables.update({"PROTOCOL": protocol.name})
         for tag in tags:
-            inbound = xray.config.inbounds_by_tag.get(tag)
+            inbound = all_inbounds_by_tag.get(tag)
             if not inbound:
                 continue
 
             format_variables.update({"TRANSPORT": inbound["network"]})
             host_inbound = inbound.copy()
-            for host in xray.hosts.get(tag, []):
+            for host in all_hosts.get(tag, []):
                 sni = ""
                 sni_list = host["sni"] or inbound["sni"]
                 if sni_list:

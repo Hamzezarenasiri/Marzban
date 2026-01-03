@@ -47,6 +47,16 @@ class DictStorage(dict):
         super().__init__()
         self.update_func = update_func
 
+    def __bool__(self):
+        if not super().__len__():
+            self.update()
+        return super().__len__() > 0
+
+    def __len__(self):
+        if not super().__len__():
+            self.update()
+        return super().__len__()
+
     def __getitem__(self, key):
         if not self:
             self.update()

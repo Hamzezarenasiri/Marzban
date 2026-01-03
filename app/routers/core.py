@@ -200,6 +200,8 @@ def modify_singbox_config(
         startup_config = config.include_db_users()
         singbox.core.restart(startup_config)
 
+    singbox.hosts.update()
+
     return payload
 
 

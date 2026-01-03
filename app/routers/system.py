@@ -122,5 +122,7 @@ def modify_hosts(
         crud.update_hosts(db, inbound_tag, hosts)
 
     xray.hosts.update()
+    if SINGBOX_ENABLED and singbox.hosts:
+        singbox.hosts.update()
 
     return {tag: crud.get_hosts(db, tag) for tag in all_tags}
