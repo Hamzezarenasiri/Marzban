@@ -63,6 +63,9 @@ class SingBoxConfig(dict):
                 "port": inbound.get("listen_port") or inbound.get("port"),
                 "listen": inbound.get("listen", "::"),
                 "network": network_map.get(protocol, "tcp"),
+                "host": [],  # Required for subscription generation
+                "path": "",  # Required for subscription generation
+                "header_type": "",  # Required for subscription generation
             }
 
             # Protocol-specific settings
