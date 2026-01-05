@@ -7,7 +7,7 @@ from enum import Enum
 from typing import Dict, List, Optional, Tuple, Union
 
 from sqlalchemy import and_, delete, func, or_
-from sqlalchemy.orm import Query, Session, joinedload
+from sqlalchemy.orm import Query, Session, joinedload, subqueryload
 from sqlalchemy.sql.functions import coalesce
 
 from app.db.models import (
@@ -176,7 +176,11 @@ def get_user_queryset(db: Session) -> Query:
     Returns:
         Query: Base user query.
     """
-    return db.query(User).options(joinedload(User.admin)).options(joinedload(User.next_plan))
+    return db.query(User).options(
+        joinedload(User.admin),
+        joinedload(User.next_plan),
+        subqueryload(User.proxies).subqueryload(Proxy.excluded_inbounds)
+    )
 
 
 def get_user(db: Session, username: str) -> Optional[User]:
@@ -399,8 +403,8 @@ def create_user(db: Session, user: UserCreate, admin: Admin = None) -> User:
     )
     db.add(dbuser)
     db.commit()
-    db.refresh(dbuser)
-    return dbuser
+    # Re-query with eager loading to prevent DetachedInstanceError
+    return get_user_queryset(db).filter(User.id == dbuser.id).first()
 
 
 def remove_user(db: Session, dbuser: User) -> User:
@@ -528,8 +532,8 @@ def update_user(db: Session, dbuser: User, modify: UserModify) -> User:
     dbuser.edit_at = datetime.utcnow()
 
     db.commit()
-    db.refresh(dbuser)
-    return dbuser
+    # Re-query with eager loading to prevent DetachedInstanceError
+    return get_user_queryset(db).filter(User.id == dbuser.id).first()
 
 
 def reset_user_data_usage(db: Session, dbuser: User) -> User:
@@ -560,8 +564,8 @@ def reset_user_data_usage(db: Session, dbuser: User) -> User:
     db.add(dbuser)
 
     db.commit()
-    db.refresh(dbuser)
-    return dbuser
+    # Re-query with eager loading to prevent DetachedInstanceError
+    return get_user_queryset(db).filter(User.id == dbuser.id).first()
 
 
 def reset_user_by_next(db: Session, dbuser: User) -> User:
@@ -598,8 +602,8 @@ def reset_user_by_next(db: Session, dbuser: User) -> User:
     db.add(dbuser)
 
     db.commit()
-    db.refresh(dbuser)
-    return dbuser
+    # Re-query with eager loading to prevent DetachedInstanceError
+    return get_user_queryset(db).filter(User.id == dbuser.id).first()
 
 
 def revoke_user_sub(db: Session, dbuser: User) -> User:
@@ -622,8 +626,8 @@ def revoke_user_sub(db: Session, dbuser: User) -> User:
     dbuser = update_user(db, dbuser, user)
 
     db.commit()
-    db.refresh(dbuser)
-    return dbuser
+    # Re-query with eager loading to prevent DetachedInstanceError
+    return get_user_queryset(db).filter(User.id == dbuser.id).first()
 
 
 def update_user_sub(db: Session, dbuser: User, user_agent: str) -> User:
@@ -642,8 +646,8 @@ def update_user_sub(db: Session, dbuser: User, user_agent: str) -> User:
     dbuser.sub_last_user_agent = user_agent
 
     db.commit()
-    db.refresh(dbuser)
-    return dbuser
+    # Re-query with eager loading to prevent DetachedInstanceError
+    return get_user_queryset(db).filter(User.id == dbuser.id).first()
 
 
 def reset_all_users_data_usage(db: Session, admin: Optional[Admin] = None):
@@ -820,8 +824,8 @@ def update_user_status(db: Session, dbuser: User, status: UserStatus) -> User:
     dbuser.status = status
     dbuser.last_status_change = datetime.utcnow()
     db.commit()
-    db.refresh(dbuser)
-    return dbuser
+    # Re-query with eager loading to prevent DetachedInstanceError
+    return get_user_queryset(db).filter(User.id == dbuser.id).first()
 
 
 def set_owner(db: Session, dbuser: User, admin: Admin) -> User:
@@ -838,8 +842,8 @@ def set_owner(db: Session, dbuser: User, admin: Admin) -> User:
     """
     dbuser.admin = admin
     db.commit()
-    db.refresh(dbuser)
-    return dbuser
+    # Re-query with eager loading to prevent DetachedInstanceError
+    return get_user_queryset(db).filter(User.id == dbuser.id).first()
 
 
 def start_user_expire(db: Session, dbuser: User) -> User:
@@ -858,8 +862,8 @@ def start_user_expire(db: Session, dbuser: User) -> User:
     dbuser.on_hold_expire_duration = None
     dbuser.on_hold_timeout = None
     db.commit()
-    db.refresh(dbuser)
-    return dbuser
+    # Re-query with eager loading to prevent DetachedInstanceError
+    return get_user_queryset(db).filter(User.id == dbuser.id).first()
 
 
 def get_system_usage(db: Session) -> System:
