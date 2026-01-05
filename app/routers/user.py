@@ -112,7 +112,17 @@ def modify_user(
     """
 
     for proxy_type in modified_user.proxies:
-        if not xray.config.inbounds_by_protocol.get(proxy_type):
+        # Check xray config for xray protocols
+        xray_has = xray.config.inbounds_by_protocol.get(proxy_type)
+        # Check singbox config for singbox protocols (hysteria2, tuic, wireguard)
+        singbox_has = False
+        if proxy_type.is_singbox_protocol:
+            from config import SINGBOX_ENABLED
+            if SINGBOX_ENABLED:
+                from app import singbox
+                singbox_has = singbox.config and singbox.config.inbounds_by_protocol.get(proxy_type)
+
+        if not xray_has and not singbox_has:
             raise HTTPException(
                 status_code=400,
                 detail=f"Protocol {proxy_type} is disabled on your server",
